@@ -1,0 +1,19 @@
+# CVAT 원본 제외
+cvat/
+!cvat/docker-compose.override.yml    # 필요시 네 설정만 포함
+
+# Docker 관련 캐시 제외
+*.log
+*.pyc
+__pycache__/
+cvat_data/
+cvat_keys/
+cvat_logs/
+cvat_db/
+cvat_inmem_db/
+cvat_cache_db/
+cvat_events_db/
+
+# 기타 OS별 캐시
+.DS_Store
+.env
