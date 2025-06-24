@@ -20,3 +20,6 @@ cvat_events_db/
 
 # Ignore CVAT specific files
 HTP_Datasets
+
+# 초기 오토라벨링 모델 폴더
+test_data/
