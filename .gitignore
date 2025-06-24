@@ -17,3 +17,6 @@ cvat_events_db/
 # 기타 OS별 캐시
 .DS_Store
 .env
+
+# Ignore CVAT specific files
+HTP_Datasets
