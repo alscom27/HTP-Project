@@ -1,0 +1,24 @@
+nc: 15 
+names:
+  0: house
+  1: tree
+  2: person
+  3: door
+  4: roof
+  5: window
+  6: branch
+  7: root
+  8: crown
+  9: fruit
+  10: gnarl
+  11: eye
+  12: leg
+  13: mouth
+  14: arm
+path: ./test_data
+train: images/train
+val: images/val
+
+# 해당 파일은 all box 모델을 위한 data.yaml 파일입니다.
+# test_data 디렉토리에(없다면 생성 후) 이 파일을 적용해주세요 
+# 실제 적용시에는 data.yaml 로 파일 이름을 변경해주세요
