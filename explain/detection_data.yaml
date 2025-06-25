@@ -1,20 +1,9 @@
-nc: 15 
+
+nc: 3
 names:
   0: house
-  1: tree
-  2: person
-  3: door
-  4: roof
-  5: window
-  6: branch
-  7: root
-  8: crown
-  9: fruit
-  10: gnarl
-  11: eye
-  12: leg
-  13: mouth
-  14: arm
+  1: person
+  2: tree
 path: ./test_data
 train: images/train
 val: images/val

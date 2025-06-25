@@ -1,6 +1,6 @@
 # CVAT 원본 제외
 cvat/
-!cvat/docker-compose.override.yml    # 필요시 네 설정만 포함
+!cvat/docker-compose.override.yml    # 필요시 설정만 포함
 
 # Docker 관련 캐시 제외
 *.log
@@ -18,12 +18,12 @@ cvat_events_db/
 .DS_Store
 .env
 
-# Ignore CVAT specific files
+# 초기 데이터셋 폴더
 HTP_Datasets
 
 # 초기 오토라벨링 모델 폴더
-
 test_data/
 
 # 작업 폴더 제외
 yeeun/
+runs/

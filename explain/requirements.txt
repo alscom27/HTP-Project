@@ -1,0 +1,11 @@
+# python version 3.12
+# conda 로 가상환경 생성 후 pip install -r explain/requirements.txt 로 모든 라이브러리 설치
+
+# 기본 패키지는 PyPI에서, PyTorch 관련 패키지는 PyTorch 제공 URL에서 찾도록 설정
+--extra-index-url https://download.pytorch.org/whl/cu126
+
+torch
+torchvision
+torchaudio
+ultralytics
+scikit-learn
