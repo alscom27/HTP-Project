@@ -1,6 +1,6 @@
 # CVAT 원본 제외
 cvat/
-!cvat/docker-compose.override.yml    # 필요시 네 설정만 포함
+!cvat/docker-compose.override.yml    # 필요시 설정만 포함
 
 # Docker 관련 캐시 제외
 *.log
