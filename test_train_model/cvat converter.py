@@ -1,3 +1,7 @@
+# 이 코드는 CVAT에서 추출한 XML 파일을 파싱하여 나무 객체의 속성을 추출하고,
+# 각 나무 객체에 대한 고유 ID를 생성합니다.
+# 추출된 속성은 Pandas DataFrame으로 변환되어 CSV 파일로 저장됩니다.
+
 import xml.etree.ElementTree as ET
 import pandas as pd
 
