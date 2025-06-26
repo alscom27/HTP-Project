@@ -1,21 +1,19 @@
-# 여러 개의 CSV 파일과 원본 이미지 폴더를 기반으로 이미지를 자르고
-# 다양한 객체(나무, 집, 사람)의 속성 분류 학습용 데이터셋을 생성하는 스크립트입니다.
-# 지정된 폴더 내의 'extracted_*_attributes.csv' 패턴의 모든 파일을 읽어 처리합니다.
+# 단일 'merged_attributes.csv' 파일과 원본 이미지 폴더를 기반으로 이미지를 자르고
+# 객체 속성 분류 학습용 데이터셋을 생성하는 스크립트입니다.
 
 import pandas as pd
 from PIL import Image
 import os
 from tqdm import tqdm
-import glob  # 파일 경로를 쉽게 다루기 위한 라이브러리
 
 
-def create_classifier_dataset(csv_dir, images_dir, output_dir):
+def create_classifier_dataset(csv_path, images_dir, output_dir):
     """
-    다양한 객체 정보가 담긴 여러 CSV 파일들과 원본 이미지를 기반으로, 이미지를 자르고
+    하나의 병합된 CSV 파일과 원본 이미지를 기반으로, 이미지를 자르고
     분류 학습용 데이터셋을 생성합니다.
 
     Args:
-        csv_dir (str): 'extracted_*_attributes.csv' 파일들이 있는 폴더 경로
+        csv_path (str): 병합된 속성 정보가 담긴 CSV 파일 경로 ('merged_attributes.csv')
         images_dir (str): 원본 이미지가 있는 폴더 경로
         output_dir (str): 결과물이 저장될 폴더 경로
     """
@@ -27,27 +25,20 @@ def create_classifier_dataset(csv_dir, images_dir, output_dir):
         os.makedirs(base_cropped_dir)
         print(f"'{base_cropped_dir}' 폴더를 생성했습니다.")
 
-    # 2. 지정된 폴더에서 CSV 파일들 찾아 하나로 합치기
-    search_pattern = os.path.join(csv_dir, "extracted_*_attributes.csv")
-    csv_files = glob.glob(search_pattern)
-
-    if not csv_files:
-        print(
-            f"오류: '{csv_dir}' 폴더에서 'extracted_*_attributes.csv' 패턴의 파일을 찾을 수 없습니다."
-        )
+    # 2. 병합된 CSV 파일 하나를 읽기
+    try:
+        df = pd.read_csv(csv_path)
+        print(f"성공적으로 '{csv_path}' 파일을 읽었습니다.")
+    except FileNotFoundError:
+        print(f"오류: 입력 CSV 파일 '{csv_path}'를 찾을 수 없습니다.")
         return
-
-    print(f"{len(csv_files)}개의 CSV 파일을 발견했습니다: {csv_files}")
-
-    df_list = [pd.read_csv(file) for file in csv_files]
-    df = pd.concat(df_list, ignore_index=True)
 
     # 3. 최종 라벨 데이터를 저장할 딕셔너리 리스트
     classifier_data = []
 
     print("이미지 자르기 및 라벨 생성을 시작합니다...")
 
-    # 4. 합쳐진 DataFrame의 각 행을 순회하며 작업 수행
+    # 4. DataFrame의 각 행을 순회하며 작업 수행
     for index, row in tqdm(df.iterrows(), total=df.shape[0]):
         image_name = row["image_name"]
         source_image_path = os.path.join(images_dir, image_name)
@@ -71,6 +62,7 @@ def create_classifier_dataset(csv_dir, images_dir, output_dir):
 
                 # 6. 이미지 자르기 (Crop) 및 저장
                 cropped_img = img.crop((left, top, right, bottom))
+                # object_id는 이미 파일명까지 포함하여 고유함
                 cropped_filename = f"{row['object_id']}.png"
                 cropped_output_path = os.path.join(
                     specific_cropped_dir, cropped_filename
@@ -87,6 +79,7 @@ def create_classifier_dataset(csv_dir, images_dir, output_dir):
 
                 # 8. 객체 라벨에 따라 다르게 라벨링 수행
                 if label == "tree":
+                    # '..._yn'으로 끝나고 값이 비어있지 않은 모든 속성 컬럼을 처리
                     attr_cols = [
                         col
                         for col in row.index
@@ -100,6 +93,7 @@ def create_classifier_dataset(csv_dir, images_dir, output_dir):
                     for col in bool_cols:
                         label_info[col] = int(row[col]) if pd.notna(row[col]) else 0
 
+                    # 'window_cnt'를 원-핫 인코딩으로 변환
                     window_categories = ["1", "2", "more than 3"]
                     for cat in window_categories:
                         col_name = f"window_cnt_{cat.replace(' ', '_')}"
@@ -108,9 +102,16 @@ def create_classifier_dataset(csv_dir, images_dir, output_dir):
                         )
 
                 elif label in ["men", "women", "person"]:
-                    attr_cols = ["eye_yn", "leg_yn", "mouth_yn"]
+                    attr_cols = [
+                        "eye_yn",
+                        "leg_yn",
+                        "mouth_yn",
+                        "arm_yn",
+                    ]  # 'arm_yn' 등 다른 속성도 추가 가능
                     for col in attr_cols:
-                        label_info[col] = int(row[col]) if pd.notna(row[col]) else 0
+                        # 해당 속성이 DataFrame에 존재할 경우에만 처리
+                        if col in row and pd.notna(row[col]):
+                            label_info[col] = int(row[col])
 
                 classifier_data.append(label_info)
 
@@ -119,14 +120,16 @@ def create_classifier_dataset(csv_dir, images_dir, output_dir):
                 f"오류: '{image_name}' (ID: {row['object_id']}) 처리 중 문제 발생 - {e}"
             )
 
-    # 10. 최종 라벨 CSV 파일 생성
+    # 9. 최종 라벨 CSV 파일 생성
     if classifier_data:
         classifier_df = pd.DataFrame(classifier_data)
+        # image_path, label 컬럼을 제외한 모든 컬럼의 빈 값을 0으로 채우고 정수형으로 변환
         label_columns = classifier_df.columns.drop(["image_path", "label"])
         classifier_df[label_columns] = (
             classifier_df[label_columns].fillna(0).astype(int)
         )
 
+        # 컬럼 순서 재정렬 (image_path, label을 맨 앞으로)
         first_cols = ["image_path", "label"]
         other_cols = sorted(
             [col for col in classifier_df.columns if col not in first_cols]
@@ -145,14 +148,14 @@ def create_classifier_dataset(csv_dir, images_dir, output_dir):
 
 if __name__ == "__main__":
     # --- 설정 값 ---
-    # 이전 스크립트가 'extracted_*_attributes.csv' 파일들을 저장한 폴더
-    INPUT_CSV_DIR = (
-        "."  # 현재 폴더에 CSV가 있다고 가정, 필요시 "attribute_csvs" 등으로 변경
-    )
+    # 이전 스크립트에서 생성된 병합 CSV 파일 경로
+    INPUT_CSV_PATH = "merged_attributes.csv"
+
     # 원본 이미지가 저장된 폴더
     ORIGINAL_IMAGES_DIR = "original_images"
-    # 최종 데이터셋이 저장될 폴더
+
+    # 최종 데이터셋(잘린 이미지, 라벨 파일)이 저장될 폴더
     OUTPUT_DATASET_DIR = "classifier_dataset"
 
     # 함수 실행
-    create_classifier_dataset(INPUT_CSV_DIR, ORIGINAL_IMAGES_DIR, OUTPUT_DATASET_DIR)
+    create_classifier_dataset(INPUT_CSV_PATH, ORIGINAL_IMAGES_DIR, OUTPUT_DATASET_DIR)
