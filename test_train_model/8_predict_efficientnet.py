@@ -19,6 +19,14 @@ def get_model(model_name, num_attributes, pretrained=False):
         model = models.mobilenet_v3_small(weights=None)
         in_features = model.classifier[-1].in_features
         model.classifier[-1] = nn.Linear(in_features, num_attributes)
+
+    # <<< [수정] EfficientNet 모델 추가 >>>
+    elif model_name == "efficientnet_b0":
+        model = models.efficientnet_b0(weights=None)
+        # EfficientNet의 분류기는 model.classifier[-1]에 위치합니다.
+        in_features = model.classifier[-1].in_features
+        model.classifier[-1] = nn.Linear(in_features, num_attributes)
+
     # 다른 모델 추가 시 여기에 elif 구문 사용 (예: resnet18)
     # elif model_name == "resnet18":
     #     model = models.resnet18(weights=None)
@@ -68,11 +76,12 @@ if __name__ == "__main__":
 
     # <<< 2. 예측할 이미지 경로를 여기에 입력하세요 >>>
     # 예: "test_images/my_tree.jpg", "test_images/my_house.png"
-    TEST_IMAGE_PATH = "test_images/tree_7_male_00367.jpg"  # 예측할 이미지로 경로 수정
+    TEST_IMAGE_PATH = "test_images/tree_7_male_01628.jpg"  # 예측할 이미지로 경로 수정
 
     # --- (고급 설정) ---
-    # 학습 시 사용한 모델의 기본 이름
-    BASE_MODEL_NAME = "mobilenet_v3_small"
+    # <<< [수정] 학습 시 사용한 모델 이름을 efficientnet_b0로 변경 >>>
+    BASE_MODEL_NAME = "efficientnet_b0"
+
     # 학습 시 사용한 이미지 크기
     IMAGE_SIZE = 224
     # 예측 임계값 (이 값보다 확률이 높으면 'Yes'로 판단)

@@ -28,7 +28,8 @@ class CFG:
     TARGET_LABEL = "tree"
 
     # 모델 및 학습 하이퍼파라미터
-    MODEL_NAME = "mobilenet_v3_small"  # 또는 'resnet18', 'efficientnet_b0' 등
+    # <<< [수정] 기본 모델을 efficientnet_b0로 변경 >>>
+    MODEL_NAME = "efficientnet_b0"  # 또는 'mobilenet_v3_small', 'resnet18' 등
     IMAGE_SIZE = 224
     BATCH_SIZE = 8
     LEARNING_RATE = 1e-4
@@ -77,17 +78,36 @@ class ObjectAttributeDataset(Dataset):
 
 
 # --- 3. 모델 정의 ---
+# <<< [수정] MODEL_NAME에 따라 다른 모델을 로드하도록 함수 구조 변경 >>>
 def get_model(num_attributes, pretrained=True):
     """
     사전 학습된 모델을 불러와 마지막 레이어를 우리 작업에 맞게 수정
     """
-    weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1 if pretrained else None
-    model = models.mobilenet_v3_small(weights=weights)
+    model = None
+    if CFG.MODEL_NAME == "mobilenet_v3_small":
+        weights = (
+            models.MobileNet_V3_Small_Weights.IMAGENET1K_V1 if pretrained else None
+        )
+        model = models.mobilenet_v3_small(weights=weights)
+        in_features = model.classifier[-1].in_features
+        model.classifier[-1] = nn.Linear(in_features, num_attributes)
 
-    in_features = model.classifier[-1].in_features
-    model.classifier[-1] = nn.Linear(in_features, num_attributes)
+    elif CFG.MODEL_NAME == "efficientnet_b0":
+        weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1 if pretrained else None
+        model = models.efficientnet_b0(weights=weights)
+        in_features = model.classifier[-1].in_features
+        model.classifier[-1] = nn.Linear(in_features, num_attributes)
 
-    print(f"모델 '{CFG.MODEL_NAME}'을 불러왔습니다.")
+    # elif CFG.MODEL_NAME == "resnet18":
+    #     weights = models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
+    #     model = models.resnet18(weights=weights)
+    #     in_features = model.fc.in_features
+    #     model.fc = nn.Linear(in_features, num_attributes)
+
+    else:
+        raise ValueError(f"지원하지 않는 모델 이름입니다: {CFG.MODEL_NAME}")
+
+    print(f"모델 '{CFG.MODEL_NAME}'을 불러왔습니다. (Pretrained: {pretrained})")
     print(f"출력 레이어를 {num_attributes}개의 속성에 맞게 수정했습니다.")
     return model
 
