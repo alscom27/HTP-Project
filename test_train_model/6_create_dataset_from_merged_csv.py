@@ -1,10 +1,50 @@
-# 단일 'merged_attributes.csv' 파일과 원본 이미지 폴더를 기반으로 이미지를 자르고
-# 객체 속성 분류 학습용 데이터셋을 생성하는 스크립트입니다.
+# 객체 라벨(house, person, tree)에 따른 csv 파일과 원본 이미지 폴더를 기반으로
+# 이미지를 자르고 객체 속성 분류 학습용 데이터셋을 생성하는 스크립트입니다.
 
 import pandas as pd
 from PIL import Image
 import os
 from tqdm import tqdm
+import glob
+
+
+def merge_attribute_csvs(output_path):
+    """
+    현재 폴더에서 'house_attributes.csv', 'person_attributes.csv', 'tree_attributes.csv'
+    파일들을 찾아 병합하고, 지정된 경로에 저장합니다.
+
+    Args:
+        output_path (str): 병합된 CSV 파일을 저장할 경로
+
+    Returns:
+        bool: 성공적으로 병합되면 True, 아니면 False
+    """
+    # 특정 파일들을 찾습니다.
+    target_files = [
+        "house_attributes.csv",
+        "person_attributes.csv",
+        "tree_attributes.csv",
+    ]
+    found_files = [f for f in target_files if os.path.exists(f)]
+
+    if not found_files:
+        print("오류: 병합할 속성 CSV 파일(house, person, tree)을 찾을 수 없습니다.")
+        print(
+            "현재 폴더에 'house_attributes.csv', 'person_attributes.csv', 'tree_attributes.csv' 파일이 있는지 확인해주세요."
+        )
+        return False
+
+    print(f"다음 파일들을 병합합니다: {found_files}")
+
+    try:
+        df_list = [pd.read_csv(f) for f in found_files]
+        merged_df = pd.concat(df_list, ignore_index=True)
+        merged_df.to_csv(output_path, index=False)
+        print(f"성공적으로 '{output_path}' 파일에 병합된 데이터를 저장했습니다.")
+        return True
+    except Exception as e:
+        print(f"CSV 파일 병합 중 오류 발생: {e}")
+        return False
 
 
 def create_classifier_dataset(csv_path, images_dir, output_dir):
@@ -91,15 +131,17 @@ def create_classifier_dataset(csv_path, images_dir, output_dir):
                 elif label == "house":
                     bool_cols = ["door_yn", "roof_yn"]
                     for col in bool_cols:
-                        label_info[col] = int(row[col]) if pd.notna(row[col]) else 0
+                        if col in row and pd.notna(row[col]):
+                            label_info[col] = int(row[col])
 
                     # 'window_cnt'를 원-핫 인코딩으로 변환
-                    window_categories = ["1", "2", "more than 3"]
-                    for cat in window_categories:
-                        col_name = f"window_cnt_{cat.replace(' ', '_')}"
-                        label_info[col_name] = (
-                            1 if str(row.get("window_cnt")) == cat else 0
-                        )
+                    if "window_cnt" in row and pd.notna(row["window_cnt"]):
+                        window_categories = ["absence", "1 or 2", "more than 3"]
+                        for cat in window_categories:
+                            col_name = f"window_cnt_{cat.replace(' ', '_')}"
+                            label_info[col_name] = (
+                                1 if str(row["window_cnt"]) == cat else 0
+                            )
 
                 elif label in ["men", "women", "person"]:
                     attr_cols = [
@@ -107,9 +149,8 @@ def create_classifier_dataset(csv_path, images_dir, output_dir):
                         "leg_yn",
                         "mouth_yn",
                         "arm_yn",
-                    ]  # 'arm_yn' 등 다른 속성도 추가 가능
+                    ]
                     for col in attr_cols:
-                        # 해당 속성이 DataFrame에 존재할 경우에만 처리
                         if col in row and pd.notna(row[col]):
                             label_info[col] = int(row[col])
 
@@ -137,25 +178,29 @@ def create_classifier_dataset(csv_path, images_dir, output_dir):
         classifier_df = classifier_df[first_cols + other_cols]
 
         classifier_df.to_csv(output_csv_path, index=False)
-        print("\n작업 완료!")
+        print("작업 완료!")
         print(
             f"총 {len(classifier_df)}개의 잘라낸 이미지가 '{base_cropped_dir}' 내 하위 폴더에 저장되었습니다."
         )
         print(f"통합 학습용 라벨 파일이 '{output_csv_path}'에 생성되었습니다.")
     else:
-        print("\n처리할 데이터가 없습니다.")
+        print("처리할 데이터가 없습니다.")
 
 
 if __name__ == "__main__":
     # --- 설정 값 ---
-    # 이전 스크립트에서 생성된 병합 CSV 파일 경로
-    INPUT_CSV_PATH = "merged_attributes.csv"
+    MERGED_CSV_PATH = "merged_attributes.csv"
+
+    # 1. 지정된 속성 CSV 파일들 병합
+    if not merge_attribute_csvs(MERGED_CSV_PATH):
+        # 병합할 파일이 없으면 스크립트 중단
+        exit()
 
     # 원본 이미지가 저장된 폴더
-    ORIGINAL_IMAGES_DIR = "original_images"
+    ORIGINAL_IMAGES_DIR = r"C:\Users\UserK\Desktop\HTP-Project\yeeun\original_images"
 
     # 최종 데이터셋(잘린 이미지, 라벨 파일)이 저장될 폴더
     OUTPUT_DATASET_DIR = "classifier_dataset"
 
     # 함수 실행
-    create_classifier_dataset(INPUT_CSV_PATH, ORIGINAL_IMAGES_DIR, OUTPUT_DATASET_DIR)
+    create_classifier_dataset(MERGED_CSV_PATH, ORIGINAL_IMAGES_DIR, OUTPUT_DATASET_DIR)

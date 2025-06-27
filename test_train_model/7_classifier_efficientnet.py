@@ -1,6 +1,6 @@
 # 이 스크립트는 'classifier_labels.csv' 파일을 기반으로
-# 특정 객체(예: 나무, 집, 사람)의 속성을 분류하기 위한
-# 딥러닝 모델을 학습하는 범용 스크립트입니다.
+# 다양한 객체(예: 나무, 집, 사람)의 모든 속성을 한 번에 분류하는
+# 딥러닝 모델을 학습하는 통합 스크립트입니다.
 
 import torch
 import torch.nn as nn
@@ -23,17 +23,13 @@ class CFG:
     ROOT_DIR = "classifier_dataset"
     CSV_PATH = os.path.join(ROOT_DIR, "classifier_labels.csv")
 
-    # !!!! 학습할 객체 라벨을 여기서 선택 !!!!
-    # 'tree', 'house', 'person' 중 하나를 선택하세요.
-    TARGET_LABEL = "tree"
-
     # 모델 및 학습 하이퍼파라미터
-    # <<< [수정] 기본 모델을 efficientnet_b0로 변경 >>>
     MODEL_NAME = "efficientnet_b0"  # 또는 'mobilenet_v3_small', 'resnet18' 등
     IMAGE_SIZE = 224
-    BATCH_SIZE = 8
+    BATCH_SIZE = 16  # GPU 메모리에 따라 조정 가능
     LEARNING_RATE = 1e-4
     NUM_EPOCHS = 30
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 데이터 분할 비율
     VALIDATION_SPLIT = 0.2
@@ -41,13 +37,13 @@ class CFG:
 
 
 # --- 2. 커스텀 데이터셋 클래스 정의 ---
-class ObjectAttributeDataset(Dataset):
+class UnifiedAttributeDataset(Dataset):
     """
-    CSV 파일과 이미지 폴더로부터 데이터를 읽어오는 범용 커스텀 데이터셋
+    통합된 CSV 파일과 이미지 폴더로부터 데이터를 읽어오는 커스텀 데이터셋
     """
 
     def __init__(self, dataframe, root_dir, attribute_columns, transform=None):
-        self.dataframe = dataframe.reset_index(drop=True)  # 인덱스 초기화
+        self.dataframe = dataframe.reset_index(drop=True)
         self.root_dir = root_dir
         self.attribute_columns = attribute_columns
         self.transform = transform
@@ -56,7 +52,6 @@ class ObjectAttributeDataset(Dataset):
         return len(self.dataframe)
 
     def __getitem__(self, idx):
-        # CSV 파일에서 이미지의 상대 경로를 가져옵니다. (예: 'cropped_images/tree/0_0.png')
         img_relative_path = self.dataframe.iloc[idx]["image_path"]
         full_img_path = os.path.join(self.root_dir, img_relative_path)
 
@@ -64,13 +59,14 @@ class ObjectAttributeDataset(Dataset):
             image = Image.open(full_img_path).convert("RGB")
         except FileNotFoundError:
             print(f"오류: 파일을 찾을 수 없습니다 - {full_img_path}")
-            raise
+            # 임시로 검은색 이미지를 반환하여 학습 중단을 방지
+            return torch.zeros((3, CFG.IMAGE_SIZE, CFG.IMAGE_SIZE)), torch.zeros(
+                len(self.attribute_columns)
+            )
 
-        # 라벨 가져오기 (DataFrame에서 해당 속성 컬럼들을 선택)
         label_values = self.dataframe.loc[idx, self.attribute_columns].values
         label_tensor = torch.FloatTensor(label_values.astype(float))
 
-        # 이미지 변환 (Augmentation 등)
         if self.transform:
             image = self.transform(image)
 
@@ -78,32 +74,26 @@ class ObjectAttributeDataset(Dataset):
 
 
 # --- 3. 모델 정의 ---
-# <<< [수정] MODEL_NAME에 따라 다른 모델을 로드하도록 함수 구조 변경 >>>
 def get_model(num_attributes, pretrained=True):
     """
     사전 학습된 모델을 불러와 마지막 레이어를 우리 작업에 맞게 수정
     """
     model = None
-    if CFG.MODEL_NAME == "mobilenet_v3_small":
-        weights = (
-            models.MobileNet_V3_Small_Weights.IMAGENET1K_V1 if pretrained else None
-        )
-        model = models.mobilenet_v3_small(weights=weights)
-        in_features = model.classifier[-1].in_features
-        model.classifier[-1] = nn.Linear(in_features, num_attributes)
+    weights = None
+    if pretrained:
+        if CFG.MODEL_NAME == "efficientnet_b0":
+            weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1
+        # elif CFG.MODEL_NAME == "mobilenet_v3_small":
+        #     weights = models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
 
-    elif CFG.MODEL_NAME == "efficientnet_b0":
-        weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1 if pretrained else None
+    if CFG.MODEL_NAME == "efficientnet_b0":
         model = models.efficientnet_b0(weights=weights)
         in_features = model.classifier[-1].in_features
         model.classifier[-1] = nn.Linear(in_features, num_attributes)
-
-    # elif CFG.MODEL_NAME == "resnet18":
-    #     weights = models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
-    #     model = models.resnet18(weights=weights)
-    #     in_features = model.fc.in_features
-    #     model.fc = nn.Linear(in_features, num_attributes)
-
+    # elif CFG.MODEL_NAME == "mobilenet_v3_small":
+    #     model = models.mobilenet_v3_small(weights=weights)
+    #     in_features = model.classifier[-1].in_features
+    #     model.classifier[-1] = nn.Linear(in_features, num_attributes)
     else:
         raise ValueError(f"지원하지 않는 모델 이름입니다: {CFG.MODEL_NAME}")
 
@@ -114,148 +104,172 @@ def get_model(num_attributes, pretrained=True):
 
 # --- 4. 메인 학습 로직 ---
 def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"사용 장치: {device}")
-    print(f"'{CFG.TARGET_LABEL}' 객체에 대한 모델 학습을 시작합니다.")
+    print(f"사용 장치: {CFG.DEVICE}")
+    print("모든 객체의 속성을 통합하여 모델 학습을 시작합니다.")
 
     # 데이터 준비
-    df_full = pd.read_csv(CFG.CSV_PATH)
-
-    # 타겟 라벨에 따른 속성 컬럼 및 데이터프레임 필터링
-    if CFG.TARGET_LABEL == "tree":
-        attribute_columns = ["branch_yn", "crown_yn", "fruit_yn", "gnarl_yn", "root_yn"]
-        df_filtered = df_full[df_full["label"] == "tree"]
-    elif CFG.TARGET_LABEL == "house":
-        attribute_columns = [
-            "door_yn",
-            "roof_yn",
-            "window_cnt_1",
-            "window_cnt_2",
-            "window_cnt_more_than_3",
-        ]
-        df_filtered = df_full[df_full["label"] == "house"]
-    elif CFG.TARGET_LABEL == "person":
-        attribute_columns = ["eye_yn", "leg_yn", "mouth_yn"]
-        # 'men'과 'women' 라벨을 모두 'person'으로 간주하여 필터링
-        df_filtered = df_full[df_full["label"].isin(["men", "women"])]
-    else:
-        raise ValueError(f"지원하지 않는 TARGET_LABEL입니다: {CFG.TARGET_LABEL}")
-
-    num_attributes = len(attribute_columns)
-    print(f"학습 대상 속성 ({num_attributes}개): {attribute_columns}")
-
-    if df_filtered.empty:
+    try:
+        df_full = pd.read_csv(CFG.CSV_PATH)
+    except FileNotFoundError:
+        print(f"오류: CSV 파일 '{CFG.CSV_PATH}'를 찾을 수 없습니다.")
         print(
-            f"오류: CSV 파일에서 '{CFG.TARGET_LABEL}' 라벨을 가진 데이터를 찾을 수 없습니다."
+            "6번 스크립트를 먼저 실행하여 'classifier_labels.csv' 파일을 생성했는지 확인해주세요."
         )
         return
 
+    # 'image_path'와 'label'을 제외한 모든 컬럼을 속성으로 간주
+    attribute_columns = sorted(
+        [col for col in df_full.columns if col not in ["image_path", "label"]]
+    )
+    num_attributes = len(attribute_columns)
+
+    if num_attributes == 0:
+        print("오류: 학습할 속성 컬럼이 CSV 파일에 없습니다.")
+        return
+
+    print(f"학습 대상 속성 ({num_attributes}개): {attribute_columns}")
+
+    # Person 라벨 통합 ('men', 'women' -> 'person')
+    df_full["label"] = df_full["label"].replace(["men", "women"], "person")
+
+    # 데이터 분할 (Stratify by label to maintain distribution)
     train_df, val_df = train_test_split(
-        df_filtered, test_size=CFG.VALIDATION_SPLIT, random_state=CFG.RANDOM_STATE
+        df_full,
+        test_size=CFG.VALIDATION_SPLIT,
+        random_state=CFG.RANDOM_STATE,
+        stratify=df_full["label"],  # 라벨 분포를 유지하며 분할
     )
 
     # 데이터 변환 (Augmentation) 정의
-    train_transform = transforms.Compose(
-        [
-            transforms.Resize((CFG.IMAGE_SIZE, CFG.IMAGE_SIZE)),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(10),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
-    val_transform = transforms.Compose(
-        [
-            transforms.Resize((CFG.IMAGE_SIZE, CFG.IMAGE_SIZE)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
+    data_transforms = {
+        "train": transforms.Compose(
+            [
+                transforms.Resize((CFG.IMAGE_SIZE, CFG.IMAGE_SIZE)),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
+                transforms.ColorJitter(
+                    brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
+                ),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        ),
+        "val": transforms.Compose(
+            [
+                transforms.Resize((CFG.IMAGE_SIZE, CFG.IMAGE_SIZE)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        ),
+    }
 
     # Dataset 및 DataLoader 생성
-    train_dataset = ObjectAttributeDataset(
-        train_df, CFG.ROOT_DIR, attribute_columns, transform=train_transform
+    train_dataset = UnifiedAttributeDataset(
+        train_df, CFG.ROOT_DIR, attribute_columns, transform=data_transforms["train"]
     )
-    val_dataset = ObjectAttributeDataset(
-        val_df, CFG.ROOT_DIR, attribute_columns, transform=val_transform
+    val_dataset = UnifiedAttributeDataset(
+        val_df, CFG.ROOT_DIR, attribute_columns, transform=data_transforms["val"]
     )
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=CFG.BATCH_SIZE,
-        shuffle=True,
-        num_workers=2,
-        pin_memory=True,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=CFG.BATCH_SIZE,
-        shuffle=False,
-        num_workers=2,
-        pin_memory=True,
-    )
+    dataloaders = {
+        "train": DataLoader(
+            train_dataset,
+            batch_size=CFG.BATCH_SIZE,
+            shuffle=True,
+            num_workers=2,
+            pin_memory=True,
+        ),
+        "val": DataLoader(
+            val_dataset,
+            batch_size=CFG.BATCH_SIZE,
+            shuffle=False,
+            num_workers=2,
+            pin_memory=True,
+        ),
+    }
 
     # 모델, 손실 함수, 옵티마이저 정의
-    model = get_model(num_attributes=num_attributes).to(device)
-    criterion = nn.BCEWithLogitsLoss()
+    model = get_model(num_attributes=num_attributes).to(CFG.DEVICE)
+    criterion = nn.BCEWithLogitsLoss()  # Multi-label classification
     optimizer = optim.Adam(model.parameters(), lr=CFG.LEARNING_RATE)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, "min", patience=5, factor=0.5
+    )
 
     # 학습 루프
     best_val_loss = float("inf")
     best_model_weights = None
 
     for epoch in range(CFG.NUM_EPOCHS):
-        model.train()
-        train_loss = 0.0
-        for images, labels in tqdm(
-            train_loader, desc=f"Epoch {epoch + 1}/{CFG.NUM_EPOCHS} [Train]"
-        ):
-            images, labels = images.to(device), labels.to(device)
-            optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
+        print(f"\nEpoch {epoch + 1}/{CFG.NUM_EPOCHS}")
+        print("-" * 10)
 
-        model.eval()
-        val_loss = 0.0
-        val_corrects = 0
-        total_samples = 0
-        with torch.no_grad():
+        for phase in ["train", "val"]:
+            if phase == "train":
+                model.train()
+            else:
+                model.eval()
+
+            running_loss = 0.0
+            all_preds = []
+            all_labels = []
+
             for images, labels in tqdm(
-                val_loader, desc=f"Epoch {epoch + 1}/{CFG.NUM_EPOCHS} [Val]"
+                dataloaders[phase], desc=f"{phase.capitalize()}"
             ):
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
-                loss = criterion(outputs, labels)
-                val_loss += loss.item()
+                images, labels = images.to(CFG.DEVICE), labels.to(CFG.DEVICE)
+
+                optimizer.zero_grad()
+
+                with torch.set_grad_enabled(phase == "train"):
+                    outputs = model(images)
+                    loss = criterion(outputs, labels)
+
+                    if phase == "train":
+                        loss.backward()
+                        optimizer.step()
+
+                running_loss += loss.item() * images.size(0)
                 preds = torch.sigmoid(outputs) > 0.5
-                val_corrects += (preds == labels.bool()).all(dim=1).sum().item()
-                total_samples += labels.size(0)
+                all_preds.append(preds.cpu())
+                all_labels.append(labels.cpu())
 
-        avg_train_loss = train_loss / len(train_loader)
-        avg_val_loss = val_loss / len(val_loader)
-        val_accuracy = (val_corrects / total_samples) * 100
+            epoch_loss = running_loss / len(dataloaders[phase].dataset)
 
-        print(
-            f"\nEpoch {epoch + 1}/{CFG.NUM_EPOCHS} -> "
-            f"Train Loss: {avg_train_loss:.4f}, "
-            f"Val Loss: {avg_val_loss:.4f}, "
-            f"Val Accuracy: {val_accuracy:.2f}%"
-        )
+            all_preds = torch.cat(all_preds)
+            all_labels = torch.cat(all_labels)
+            # Exact match accuracy
+            accuracy = (all_preds == all_labels).all(dim=1).float().mean().item() * 100
 
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            best_model_weights = copy.deepcopy(model.state_dict())
-            print(f"*** Best model updated (val_loss: {best_val_loss:.4f}) ***")
+            print(
+                f"{phase.capitalize()} Loss: {epoch_loss:.4f} Accuracy: {accuracy:.2f}%"
+            )
+
+            if phase == "val":
+                scheduler.step(epoch_loss)
+                if epoch_loss < best_val_loss:
+                    best_val_loss = epoch_loss
+                    best_model_weights = copy.deepcopy(model.state_dict())
+                    print(f"*** Best model updated (val_loss: {best_val_loss:.4f}) ***")
 
     # 최고의 가중치를 모델에 로드하고 저장
     if best_model_weights:
         model.load_state_dict(best_model_weights)
-        save_path = f"best_{CFG.TARGET_LABEL}_{CFG.MODEL_NAME}.pth"
-        torch.save(model.state_dict(), save_path)
-        print(f"\n학습 완료! 최고의 모델이 '{save_path}' 파일로 저장되었습니다.")
+        save_path = f"best_unified_model_{CFG.MODEL_NAME}.pth"
+        # 모델 전체를 저장하여 나중에 속성 목록과 함께 사용
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "attribute_columns": attribute_columns,
+            },
+            save_path,
+        )
+        print(f"\n학습 완료! 최고의 통합 모델이 '{save_path}' 파일로 저장되었습니다.")
+        print(f"저장된 모델은 다음 속성들을 예측합니다: {attribute_columns}")
 
 
 if __name__ == "__main__":

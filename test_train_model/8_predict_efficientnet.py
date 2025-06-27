@@ -1,6 +1,4 @@
-# 이 스크립트는 학습된 모델을 사용하여 새로운 이미지에 대해 속성을 예측합니다.
-# 사용자가 예측하려는 객체 종류(house, tree, person)를 선택하면
-# 해당하는 모델과 속성 목록을 동적으로 불러와 예측을 수행합니다.
+# 이 스크립트는 학습된 통합 모델을 사용하여 새로운 이미지에 대해 모든 속성을 예측합니다.
 
 import torch
 import torch.nn as nn
@@ -15,23 +13,16 @@ def get_model(model_name, num_attributes, pretrained=False):
     """
     사전 학습된 모델 구조를 불러와 마지막 레이어를 우리 작업에 맞게 수정
     """
-    if model_name == "mobilenet_v3_small":
-        model = models.mobilenet_v3_small(weights=None)
+    model = None
+    if model_name == "efficientnet_b0":
+        model = models.efficientnet_b0(
+            weights=None
+        )  # 가중치는 파일에서 불러오므로 None
         in_features = model.classifier[-1].in_features
         model.classifier[-1] = nn.Linear(in_features, num_attributes)
-
-    # <<< [수정] EfficientNet 모델 추가 >>>
-    elif model_name == "efficientnet_b0":
-        model = models.efficientnet_b0(weights=None)
-        # EfficientNet의 분류기는 model.classifier[-1]에 위치합니다.
-        in_features = model.classifier[-1].in_features
-        model.classifier[-1] = nn.Linear(in_features, num_attributes)
-
-    # 다른 모델 추가 시 여기에 elif 구문 사용 (예: resnet18)
-    # elif model_name == "resnet18":
-    #     model = models.resnet18(weights=None)
-    #     in_features = model.fc.in_features
-    #     model.fc = nn.Linear(in_features, num_attributes)
+    # 다른 모델 아키텍처를 사용하는 경우 여기에 추가
+    # elif model_name == "mobilenet_v3_small":
+    #     ...
     else:
         raise ValueError(f"지원하지 않는 모델 이름입니다: {model_name}")
     return model
@@ -49,6 +40,7 @@ def predict_attributes(model, image_path, transform, device):
         with torch.no_grad():
             outputs = model(image_tensor)
 
+        # 시그모이드 함수를 적용하여 확률값으로 변환
         probabilities = torch.sigmoid(outputs).squeeze().cpu().numpy().tolist()
 
         # 속성이 하나일 경우, tolist()가 float을 반환하므로 리스트로 감싸줌
@@ -71,16 +63,16 @@ if __name__ == "__main__":
     #                           사용자 설정
     # ===================================================================
 
-    # <<< 1. 예측하려는 객체의 종류를 입력하세요 ('tree', 'house', 'person') >>>
-    TARGET_LABEL = "tree"
-
-    # <<< 2. 예측할 이미지 경로를 여기에 입력하세요 >>>
-    # 예: "test_images/my_tree.jpg", "test_images/my_house.png"
-    TEST_IMAGE_PATH = "test_images/tree_7_male_01628.jpg"  # 예측할 이미지로 경로 수정
+    # <<< 1. 예측할 이미지 경로를 여기에 입력하세요 >>>
+    # 예: "test_images/tree_1.jpg", "path/to/your/house_image.png"
+    TEST_IMAGE_PATH = "test_images/tree_7_male_01628.jpg"  # 예측할 이미지 경로로 수정
 
     # --- (고급 설정) ---
-    # <<< [수정] 학습 시 사용한 모델 이름을 efficientnet_b0로 변경 >>>
+    # 학습 시 사용한 모델 이름
     BASE_MODEL_NAME = "efficientnet_b0"
+
+    # 학습된 통합 모델 가중치 파일 경로
+    MODEL_WEIGHTS_PATH = f"best_unified_model_{BASE_MODEL_NAME}.pth"
 
     # 학습 시 사용한 이미지 크기
     IMAGE_SIZE = 224
@@ -89,55 +81,34 @@ if __name__ == "__main__":
 
     # ===================================================================
 
-    # --- 설정에 따른 변수 자동 구성 ---
-    num_attributes = 0
-    attribute_names = []
-
-    if TARGET_LABEL == "tree":
-        num_attributes = 5
-        attribute_names = [
-            "가지(Branch)",
-            "뿌리(Root)",
-            "수관(Crown)",
-            "열매(Fruit)",
-            "옹이(Gnarl)",
-        ]
-    elif TARGET_LABEL == "house":
-        num_attributes = 5
-        attribute_names = [
-            "문(Door)",
-            "지붕(Roof)",
-            "창문 1개",
-            "창문 2개",
-            "창문 3개 이상",
-        ]
-    elif TARGET_LABEL == "person":
-        num_attributes = 3
-        attribute_names = ["눈(Eye)", "다리(Leg)", "입(Mouth)"]
-    else:
-        print(
-            f"오류: 지원하지 않는 TARGET_LABEL입니다. 'tree', 'house', 'person' 중에서 선택하세요."
-        )
-        exit()
-
-    # 모델 가중치 파일 경로 자동 생성
-    model_weights_path = f"best_{TARGET_LABEL}_{BASE_MODEL_NAME}.pth"
-
     # --- 준비 단계 ---
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"사용 장치: {device}")
-    print(f"예측 대상: '{TARGET_LABEL}' | 모델 파일: '{model_weights_path}'")
+    print(f"사용 모델 파일: '{MODEL_WEIGHTS_PATH}'")
 
-    # 모델 구조 생성 및 가중치 불러오기
+    # 모델 가중치 및 속성 정보 불러오기
     try:
+        checkpoint = torch.load(MODEL_WEIGHTS_PATH, map_location=device)
+        attribute_columns = checkpoint["attribute_columns"]
+        num_attributes = len(attribute_columns)
+
         model = get_model(model_name=BASE_MODEL_NAME, num_attributes=num_attributes)
-        model.load_state_dict(torch.load(model_weights_path, map_location=device))
+        model.load_state_dict(checkpoint["model_state_dict"])
         model.to(device)
         model.eval()  # <<< 매우 중요: 모델을 평가 모드로 설정
+
         print(f"모델 가중치를 성공적으로 불러왔습니다.")
+        print(f"모델이 예측하는 속성 ({num_attributes}개): {attribute_columns}")
+
     except FileNotFoundError:
-        print(f"오류: 모델 가중치 파일 '{model_weights_path}'를 찾을 수 없습니다.")
-        print("학습을 먼저 실행하여 모델 파일을 생성했는지 확인하세요.")
+        print(f"오류: 모델 가중치 파일 '{MODEL_WEIGHTS_PATH}'를 찾을 수 없습니다.")
+        print("7번 스크립트로 학습을 먼저 실행하여 모델 파일을 생성했는지 확인하세요.")
+        exit()
+    except KeyError:
+        print(f"오류: 모델 파일 '{MODEL_WEIGHTS_PATH}'이 올바른 형식이 아닙니다.")
+        print(
+            "'model_state_dict'와 'attribute_columns' 키가 포함되어 있는지 확인하세요."
+        )
         exit()
 
     # 이미지 변환 정의 (학습 시 검증 데이터에 사용했던 것과 동일)
@@ -156,8 +127,10 @@ if __name__ == "__main__":
     # --- 결과 출력 ---
     if probabilities:
         print("\n--- 예측 결과 ---")
-        for i, attr_name in enumerate(attribute_names):
+        for i, attr_name in enumerate(attribute_columns):
             prob = probabilities[i]
             prediction = "Yes" if prob >= PREDICTION_THRESHOLD else "No"
-            print(f"{attr_name:<15s} : {prediction:<5s} (신뢰도: {prob * 100:.2f}%)")
+            # 속성 이름에서 '_'를 공백으로, 'yn'을 제거하여 더 읽기 쉽게 만듭니다.
+            display_name = attr_name.replace("_", " ").replace(" yn", "").capitalize()
+            print(f"{display_name:<25s} : {prediction:<5s} (신뢰도: {prob * 100:.2f}%)")
         print("-----------------")
