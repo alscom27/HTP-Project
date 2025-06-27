@@ -31,6 +31,14 @@ def get_model(model_name, num_attributes):
         in_features = model.classifier[-1].in_features
         model.classifier[-1] = nn.Linear(in_features, num_attributes)
     # 다른 모델 아키텍처를 사용하는 경우 여기에 추가
+    elif model_name == "efficientnet_b2":
+        model = models.efficientnet_b2(weights=None)
+        in_features = model.classifier[-1].in_features
+        model.classifier[-1] = nn.Linear(in_features, num_attributes)
+    elif model_name == "mobilenet_v3_small":
+        model = models.mobilenet_v3_small(weights=None)
+        in_features = model.classifier[-1].in_features
+        model.classifier[-1] = nn.Linear(in_features, num_attributes)
     else:
         raise ValueError(f"지원하지 않는 모델 이름입니다: {model_name}")
     return model
@@ -112,11 +120,11 @@ def evaluate_model():
     # ===================================================================
     #                           사용자 설정
     # ===================================================================
-    BASE_MODEL_NAME = "efficientnet_b0"
+    BASE_MODEL_NAME = "efficientnet_b2"
     MODEL_WEIGHTS_PATH = f"best_unified_model_{BASE_MODEL_NAME}.pth"
 
-    IMAGE_SIZE = 224
-    BATCH_SIZE = 32
+    IMAGE_SIZE = 260
+    BATCH_SIZE = 16
     PREDICTION_THRESHOLD = 0.5
 
     ROOT_DIR = "classifier_dataset"
