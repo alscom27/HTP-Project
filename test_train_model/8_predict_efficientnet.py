@@ -20,6 +20,14 @@ def get_model(model_name, num_attributes, pretrained=False):
         )  # 가중치는 파일에서 불러오므로 None
         in_features = model.classifier[-1].in_features
         model.classifier[-1] = nn.Linear(in_features, num_attributes)
+    elif model_name == "efficientnet_b2":
+        model = models.efficientnet_b2(weights=None)
+        in_features = model.classifier[-1].in_features
+        model.classifier[-1] = nn.Linear(in_features, num_attributes)
+    elif model_name == "mobilenet_v3_small":
+        model = models.mobilenet_v3_small(weights=None)
+        in_features = model.classifier[-1].in_features
+        model.classifier[-1] = nn.Linear(in_features, num_attributes)
     # 다른 모델 아키텍처를 사용하는 경우 여기에 추가
     # elif model_name == "mobilenet_v3_small":
     #     ...
