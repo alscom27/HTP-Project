@@ -50,7 +50,7 @@ print("--- 스크립트 실행 시작 ---")
 BASE_PROJECT_DIR = r"C:\Users\main\Desktop\HTP-Project"
 IMAGE_DIR = os.path.join(BASE_PROJECT_DIR, "visualization", "images", "images")
 LABEL_DIR = os.path.join(BASE_PROJECT_DIR, "visualization", "images", "labels")
-OUTPUT_DIR = os.path.join(BASE_PROJECT_DIR, "result")
+OUTPUT_DIR = os.path.join(BASE_PROJECT_DIR, "labeling_result")
 
 MAIN_OBJECT_IDS = {"person": 2, "tree": 1, "house": 0}
 PERSON_PARTS_MAP = {11: "eye", 12: "leg", 13: "mouth", 14: "arm"}
