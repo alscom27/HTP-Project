@@ -124,7 +124,7 @@ for task in TASKS:
         print(f"  ... [{i+1}/{len(image_files)}] '{image_file}' 분석 중 ...")
         image_path = os.path.join(image_dir, image_file)
 
-        detections = model(image_path, verbose=False)
+        detections = model(image_path, verbose=False, conf=0.7, iou=0.7)
 
         # 결과 레코드 초기화
         record = {"id": image_file, "size": "N/A", "loc": "N/A"}

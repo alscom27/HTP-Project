@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 
-model = YOLO("best.pt")
+model = YOLO("HTP_Detection.pt")
 
 if __name__ == "__main__":
     freeze_support = True  # Set to True to freeze the support layers
