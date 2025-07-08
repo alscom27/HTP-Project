@@ -71,7 +71,7 @@ if __name__ == "__main__":
     #                           사용자 설정
     # ===================================================================
 
-    # <<< 1. 예측할 이미지 경로를 여기에 입력하세요 >>>
+    # <<< 예측할 이미지 경로를 여기에 입력 >>>
     # 예: "test_images/tree_1.jpg", "path/to/your/house_image.png"
     TEST_IMAGE_PATH = "test_images/tree_7_male_01628.jpg"  # 예측할 이미지 경로로 수정
 
@@ -138,7 +138,7 @@ if __name__ == "__main__":
         for i, attr_name in enumerate(attribute_columns):
             prob = probabilities[i]
             prediction = "Yes" if prob >= PREDICTION_THRESHOLD else "No"
-            # 속성 이름에서 '_'를 공백으로, 'yn'을 제거하여 더 읽기 쉽게 만듭니다.
+            # 속성 이름에서 '_'를 공백으로, 'yn'을 제거하여 더 읽기 쉽게 만듦
             display_name = attr_name.replace("_", " ").replace(" yn", "").capitalize()
             print(f"{display_name:<25s} : {prediction:<5s} (신뢰도: {prob * 100:.2f}%)")
         print("-----------------")

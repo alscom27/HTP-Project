@@ -66,13 +66,11 @@ class EvaluationDataset(Dataset):
             )
             image = Image.new("RGB", (224, 224), (0, 0, 0))
 
-        # === [수정된 부분 시작] ===
-        # 현재 행(row)을 모델이 학습한 전체 속성 컬럼 기준으로 재정렬합니다.
-        # 만약 현재 행에 존재하지 않는 속성 컬럼이 있다면, 해당 값은 0으로 채워집니다.
-        # 이를 통해 KeyError를 방지하고 데이터 구조의 일관성을 유지합니다.
+        # 현재 행(row)을 모델이 학습한 전체 속성 컬럼 기준으로 재정렬
+        # 만약 현재 행에 존재하지 않는 속성 컬럼이 있다면, 해당 값은 0으로 채워짐
+        # 이를 통해 KeyError를 방지하고 데이터 구조의 일관성을 유지
         label_series = row.reindex(self.attribute_columns).fillna(0)
         labels = torch.FloatTensor(label_series.values.astype(float))
-        # === [수정된 부분 끝] ===
 
         if self.transform:
             image = self.transform(image)
