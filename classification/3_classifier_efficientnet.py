@@ -24,8 +24,6 @@ class CFG:
     CSV_PATH = os.path.join(ROOT_DIR, "classifier_labels.csv")
 
     # 모델 및 학습 하이퍼파라미터
-    # EfficientNet-B2는 B0보다 크기가 크지만, 작은 데이터셋에서도 사전 학습된 가중치와
-    # 적절한 데이터 증강/정규화를 사용하면 좋은 성능을 보일 수 있습니다.
     MODEL_NAME = "efficientnet_b2"  # 또는 'efficientnet_b0', 'mobilenet_v3_small' 등
     IMAGE_SIZE = 260  # EfficientNet-B2의 표준 입력 사이즈
     BATCH_SIZE = 16  # GPU 메모리에 따라 조정 가능
@@ -203,7 +201,7 @@ def main():
     # 모델, 손실 함수, 옵티마이저 정의
     model = get_model(num_attributes=num_attributes).to(CFG.DEVICE)
     criterion = nn.BCEWithLogitsLoss()  # Multi-label classification
-    # 작은 데이터셋의 과적합 방지를 위해 L2 정규화(weight_decay)를 추가합니다.
+    # 작은 데이터셋의 과적합 방지를 위해 L2 정규화(weight_decay)를 추가
     optimizer = optim.Adam(model.parameters(), lr=CFG.LEARNING_RATE, weight_decay=1e-5)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, "min", patience=5, factor=0.5

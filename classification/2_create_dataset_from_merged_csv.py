@@ -11,7 +11,7 @@ import glob
 def merge_attribute_csvs(output_path):
     """
     현재 폴더에서 'house_attributes.csv', 'person_attributes.csv', 'tree_attributes.csv'
-    파일들을 찾아 병합하고, 지정된 경로에 저장합니다.
+    파일들을 찾아 병합하고, 지정된 경로에 저장
 
     Args:
         output_path (str): 병합된 CSV 파일을 저장할 경로
@@ -19,7 +19,7 @@ def merge_attribute_csvs(output_path):
     Returns:
         bool: 성공적으로 병합되면 True, 아니면 False
     """
-    # 특정 파일들을 찾습니다.
+    # 특정 파일들을 찾음
     target_files = [
         "house_attributes.csv",
         "person_attributes.csv",
@@ -50,7 +50,7 @@ def merge_attribute_csvs(output_path):
 def create_classifier_dataset(csv_path, images_dir, output_dir):
     """
     하나의 병합된 CSV 파일과 원본 이미지를 기반으로, 이미지를 자르고
-    분류 학습용 데이터셋을 생성합니다.
+    분류 학습용 데이터셋을 생성
 
     Args:
         csv_path (str): 병합된 속성 정보가 담긴 CSV 파일 경로 ('merged_attributes.csv')
