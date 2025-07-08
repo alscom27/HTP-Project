@@ -1,3 +1,6 @@
+# 집, 나무, 사람 이미지가 한 폴더에 각 객체별 수량을 나누어 예측하는 코드
+# (학습을 마친모델로 학습에 사용되지않은 이미를 test 폴더에 넣어 확인하는 코드)
+
 import os
 import glob
 from ultralytics import YOLO

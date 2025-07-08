@@ -1,3 +1,5 @@
+# 데이터셋을 yolo 로 학습이 가능하게 train, val 로 나누어 주는 코드
+
 import os
 import random
 import shutil

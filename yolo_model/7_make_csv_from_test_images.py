@@ -5,7 +5,7 @@ from ultralytics import YOLO
 
 
 # -------------------------------------------------------------------
-#                           분석 함수 (변경 없음)
+#                           분석 함수
 # -------------------------------------------------------------------
 def analyze_size_and_loc(image_w, image_h, box, group):
     """메인 객체의 크기와 위치를 분석하는 함수"""
@@ -48,7 +48,7 @@ def analyze_size_and_loc(image_w, image_h, box, group):
 
 print("--- 스크립트 실행 시작 ---")
 
-# 1. ❗ 사용자 설정 ❗
+# 1.  사용자 설정 
 BASE_PROJECT_DIR = r"C:\Users\main\Desktop\HTP-Project"
 MODEL_PATH = os.path.join(BASE_PROJECT_DIR, "HTP_Detection.pt")
 OUTPUT_DIR = os.path.join(BASE_PROJECT_DIR, "labeling_result")
@@ -130,7 +130,7 @@ for task in TASKS:
         record = {"id": image_file, "size": "N/A", "loc": "N/A"}
         for part_name in parts_map.values():
             if part_name == "window":
-                # ✏️ window_cnt의 기본값을 'absence'로 설정
+                # window_cnt의 기본값을 'absence'로 설정
                 record["window_cnt"] = "absence"
             else:
                 record[f"{part_name}_yn"] = "n"
@@ -155,7 +155,7 @@ for task in TASKS:
                 record["loc"] = loc
 
             # 2. 부속 객체 처리
-            # ✏️ window 개수를 세기 위한 임시 카운터 변수 추가
+            #  window 개수를 세기 위한 임시 카운터 변수 추가
             window_counter = 0
             for box in detected_boxes:
                 class_id = int(box.cls)
@@ -166,7 +166,7 @@ for task in TASKS:
                     else:
                         record[f"{part_name}_yn"] = "y"
 
-            # ✏️ 루프가 끝난 후, window 개수에 따라 최종 텍스트 값을 할당
+            # 루프가 끝난 후, window 개수에 따라 최종 텍스트 값을 할당
             if "window_cnt" in record:
                 if window_counter >= 3:
                     record["window_cnt"] = "more than 3"
@@ -179,7 +179,7 @@ for task in TASKS:
     # 4. 데이터프레임 변환 및 CSV 저장
     if not results_list:
         print(
-            f"⚠️ '{task_name}' 그룹에서 분석할 데이터가 없어 CSV 파일을 생성하지 않습니다."
+            f"'{task_name}' 그룹에서 분석할 데이터가 없어 CSV 파일을 생성하지 않습니다."
         )
         continue
 
@@ -198,7 +198,7 @@ for task in TASKS:
     csv_path = os.path.join(OUTPUT_DIR, f"{task_name}_labeling_result.csv")
     df.to_csv(csv_path, index=False, encoding="utf-8-sig")
     print(
-        f"✅ '{task_name}' 그룹 분석 완료! 결과가 다음 파일로 저장되었습니다:\n    {csv_path}"
+        f"'{task_name}' 그룹 분석 완료! 결과가 다음 파일로 저장되었습니다:\n    {csv_path}"
     )
 
 print("\n🎉 모든 작업이 완료되었습니다!")

@@ -12,4 +12,4 @@ if __name__ == "__main__":
         device="0, 1",
         name="yolo11n_4000_data",
         patience=20,
-    )  # Adjust parameters as needed
+    )

@@ -1,3 +1,5 @@
+# 집, 나무, 사람 만 있는 3개클래스를 포함한 YOLO 모델로 CVAT CLI 로 오토라벨링 하는 코드
+
 import cvat_sdk.auto_annotation as cvataa
 from ultralytics import YOLO
 

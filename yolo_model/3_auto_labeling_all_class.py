@@ -1,3 +1,5 @@
+# 집, 나무, 사람 을 포함하고 세부속성 클래스를 포함한 YOLO 모델로 CVAT CLI 로 오토라벨링 하는 코드
+
 import cvat_sdk.auto_annotation as cvataa
 from ultralytics import YOLO
 
