@@ -1,3 +1,5 @@
+# 분할한 파일이 각각 같은 폴더에 있는지 폴더의 이름끼리 대조하는 코드
+
 import os
 
 txt_dir_val = r"test_data\labels\val"
