@@ -6,7 +6,7 @@ import pandas as pd
 import os
 import glob
 
-# 1. XML 파일들이 있는 폴더 경로를 지정합니다.
+# 1. XML 파일들이 있는 폴더 경로를 지정
 xml_folder_path = "C:/Users/UserK/Desktop/HTP-Project/yeeun/annotations"
 
 xml_files = glob.glob(os.path.join(xml_folder_path, "*.xml"))
